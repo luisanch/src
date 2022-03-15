@@ -11,6 +11,7 @@ from sensor_msgs.msg import Imu
 from sensor_msgs.msg import FluidPressure
 from mavros_msgs.srv import CommandLong
 from geometry_msgs.msg import Twist
+import numpy as np
 
 
 # ---------- Global Variables ---------------
@@ -84,19 +85,19 @@ def armDisarm(armed):
 	# This functions sends a long command service with 400 code to arm or disarm motors
 	if (armed):
 		rospy.wait_for_service('mavros/cmd/command')
-    		try:
-        		armService = rospy.ServiceProxy('mavros/cmd/command', CommandLong)
+		try:
+			armService = rospy.ServiceProxy('mavros/cmd/command', CommandLong)
 			armService(0, 400, 0, 1, 0, 0, 0, 0, 0, 0)
 			rospy.loginfo("Arming Succeeded")
-    		except rospy.ServiceException, e:
-        		rospy.loginfo("Except arming")
+		except (rospy.ServiceException, e):
+			rospy.loginfo("Except arming")
 	else:
 		rospy.wait_for_service('mavros/cmd/command')
-    		try:
-        		armService = rospy.ServiceProxy('mavros/cmd/command', CommandLong)
+		try:
+			armService = rospy.ServiceProxy('mavros/cmd/command', CommandLong)
 			armService(0, 400, 0, 0, 0, 0, 0, 0, 0, 0)
 			rospy.loginfo("Disarming Succeeded")
-    		except rospy.ServiceException, e:
+		except (rospy.ServiceException, e):
 			rospy.loginfo("Except disarming")	
 
 
@@ -212,15 +213,16 @@ def setOverrideRCIN(channel_pitch, channel_roll, channel_throttle, channel_yaw, 
 	# In this case, each channel manages a group of motors not individually as servo set
 
 	msg_override = OverrideRCIn()
-	msg_override.channels[0] = channel_pitch		#pulseCmd[4]  # pitch		Tangage
-	msg_override.channels[1] = channel_roll			#pulseCmd[3]  # roll 		Roulis
-	msg_override.channels[2] = channel_throttle		#pulseCmd[2]  # up/down		Montee/descente
-	msg_override.channels[3] = channel_yaw			#pulseCmd[5]  # yaw		Lace
-	msg_override.channels[4] = channel_forward		#pulseCmd[0]  # forward		Devant/derriere
-	msg_override.channels[5] = channel_lateral		#pulseCmd[1]  # lateral		Gauche/droite
+
+	msg_override.channels[0] = np.uint(channel_pitch)		#pulseCmd[4]  # pitch		Tangage
+	msg_override.channels[1] = np.uint(channel_roll)			#pulseCmd[3]  # roll 		Roulis
+	msg_override.channels[2] = np.uint(channel_throttle)		#pulseCmd[2]  # up/down		Montee/descente
+	msg_override.channels[3] = np.uint(channel_yaw)			#pulseCmd[5]  # yaw		Lace
+	msg_override.channels[4] = np.uint(channel_forward)		#pulseCmd[0]  # forward		Devant/derriere
+	msg_override.channels[5] = np.uint(channel_lateral)		#pulseCmd[1]  # lateral		Gauche/droite
 	msg_override.channels[6] = 1500
 	msg_override.channels[7] = 1500
-
+	# print("<3 ",msg_override)
 	pub_msg_override.publish(msg_override)
 
 
