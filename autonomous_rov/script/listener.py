@@ -3,6 +3,7 @@
 import rospy
 import tf
 import math
+from std_msgs.msg import Int16
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from mavros_msgs.msg import OverrideRCIn
@@ -225,17 +226,21 @@ def setOverrideRCIN(channel_pitch, channel_roll, channel_throttle, channel_yaw, 
 	# print("<3 ",msg_override)
 	pub_msg_override.publish(msg_override)
 
+def DoThing(msg):
+	print(msg.data)
+	setOverrideRCIN(1500, 1500, msg.data, 1500, 1500, 1500)
 
 def subscriber():
 	rospy.Subscriber("joy", Joy, joyCallback)
 	rospy.Subscriber("cmd_vel", Twist, velCallback)
 	rospy.Subscriber("mavros/imu/data", Imu, OdoCallback)
 	rospy.Subscriber("mavros/imu/water_pressure", FluidPressure, PressureCallback)
+	rospy.Subscriber("do/thing", Int16, DoThing)
 	rospy.spin() # Execute subscriber in loop
 
 
 if __name__ == '__main__':
-	armDisarm(False) # Not automatically disarmed at startup
+	# armDisarm(False) # Not automatically disarmed at startup
 	rospy.init_node('autonomous_MIR', anonymous=False)
 	pub_msg_override = rospy.Publisher("mavros/rc/override", OverrideRCIn, queue_size=10, tcp_nodelay=True)
 	pub_angle_degre = rospy.Publisher('angle_degree', Twist, queue_size=10, tcp_nodelay=True)
