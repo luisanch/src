@@ -6,30 +6,43 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def linear_eq(x, m):
-    # print(prams)
-    # m,c = params
-    # x, y = data
     return m*x + 1532
     
+def linear_eq_below(x, m):
+    return m*x + 1468
 
+def compute_pwm(f, m, c):
+    return m*f + c
 file_name = 't200.xls'
 sheet_name = '16 V'
 file_path = os.path.abspath(os.getcwd()) + '/data/' + file_name
-
-print(file_path)
 data = pd.read_excel(file_path, sheet_name=sheet_name)
 
 # print(data.loc[data[' PWM (µs)'] >= 1500])
 # print(data.loc[(data[' PWM (µs)'] >= 1500) & (data[' Force (Kg f)'] > 0)])
-data_above_1500 = data.loc[(data[' PWM (µs)'] >= 1500) & (data[' Force (Kg f)'] > 0)]
-print(data_above_1500)
-y = np.array(data_above_1500[' PWM (µs)'])
-x = np.array(data_above_1500[' Force (Kg f)'])
-result = curve_fit(linear_eq, x, y, p0=[0])
+
+data_above_1500 = data.loc[(data[' Force (Kg f)'] > 0)]
+data_below_1500 = data.loc[(data[' Force (Kg f)'] < 0)]
+# print(data_above_1500)
+y_above = np.array(data_above_1500[' PWM (µs)'])
+x_above = np.array(data_above_1500[' Force (Kg f)'])
+result_above = curve_fit(linear_eq, x_above, y_above, p0=[0])
+
+y_below = np.array(data_below_1500[' PWM (µs)'])
+x_below = np.array(data_below_1500[' Force (Kg f)'])
+result_below = curve_fit(linear_eq_below, x_below, y_below, p0=[0])
+
 y_all = np.array(data[' PWM (µs)'])
 x_all = np.array(data[' Force (Kg f)'])
-print(result)
-plt.plot(x, linear_eq(x, result[0][0]))
+print('slope for positive thrust is: ', result_above[0][0])
+print('slope for negative thrust is: ', result_below[0][0])
+plt.plot(x_above, linear_eq(x_above, result_above[0][0]))
+plt.plot(x_below, linear_eq_below(x_below, result_below[0][0]))
 plt.plot(x_all, y_all)
 plt.show()
+
+required_thrust = 1.5/4
+required_pwm = compute_pwm(required_thrust, result_above[0][0], 1532)
+print(f'Requireed PWM for {required_thrust} thrust is {required_pwm}')
+
 
