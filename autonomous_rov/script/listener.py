@@ -4,6 +4,7 @@ import rospy
 import tf
 import math
 from std_msgs.msg import Int16
+from std_msgs.msg import Float64
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from mavros_msgs.msg import OverrideRCIn
@@ -161,6 +162,18 @@ def PressureCallback(data):
 	rho = 1000.0 # 1025.0 for sea water
 	g = 9.80665
 
+	pressure = data.fluid_pressure
+
+	if (init_p0):
+		# 1st execution, init
+		depth_p0 = (pressure - 101300)/(rho*g)
+		init_p0 = False
+
+	depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
+
+	msg = Float64()
+	msg.data = depth_wrt_startup
+	pub_depth.publish(msg)
 
 	# Only continue if manual_mode is disabled
 	if (set_mode[0]):
@@ -171,19 +184,8 @@ def PressureCallback(data):
 		setOverrideRCIN(1500, 1500, 1500, 1500, 1700, 1500)
 		return
 
-
-	pressure = data.fluid_pressure
-
-	if (init_p0):
-		# 1st execution, init
-		depth_p0 = (pressure - 101300)/(rho*g)
-		init_p0 = False
-
-	depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
-
 	# setup depth servo control here
 	# ...
-
 
 	# Send PWM commands to motors
 	# setOverrideRCIN(1500, 1500, Correction_depth, 1500, 1500, 1500)
@@ -223,18 +225,27 @@ def setOverrideRCIN(channel_pitch, channel_roll, channel_throttle, channel_yaw, 
 	msg_override.channels[5] = np.uint(channel_lateral)		#pulseCmd[1]  # lateral		Gauche/droite
 	msg_override.channels[6] = 1500
 	msg_override.channels[7] = 1500
-	# print("<3 ",msg_override)
+	# print("<3=====D ",msg_override)
 	pub_msg_override.publish(msg_override)
 
 def DoThing(msg):
 	print(msg.data)
 	setOverrideRCIN(1500, 1500, msg.data, 1500, 1500, 1500)
 
+def PIDControlCallback(pid_effort):
+	floatability = 0
+	thrust_req = floatability + pid_effort.data
+	m = 76
+	c = 1532
+	pwm = int(m*thrust_req/4) + c
+	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
+
 def subscriber():
 	rospy.Subscriber("joy", Joy, joyCallback)
 	rospy.Subscriber("cmd_vel", Twist, velCallback)
 	rospy.Subscriber("mavros/imu/data", Imu, OdoCallback)
 	rospy.Subscriber("mavros/imu/water_pressure", FluidPressure, PressureCallback)
+	rospy.Subscriber("pid/depth/control_effor", Float64, PIDControlCallback)
 	rospy.Subscriber("do/thing", Int16, DoThing)
 	rospy.spin() # Execute subscriber in loop
 
@@ -244,6 +255,7 @@ if __name__ == '__main__':
 	rospy.init_node('autonomous_MIR', anonymous=False)
 	pub_msg_override = rospy.Publisher("mavros/rc/override", OverrideRCIn, queue_size=10, tcp_nodelay=True)
 	pub_angle_degre = rospy.Publisher('angle_degree', Twist, queue_size=10, tcp_nodelay=True)
+	pub_depth = rospy.Publisher('pid/depth/state', Float64, queue_size=10, tcp_nodelay=True)
 	subscriber()
 
 
