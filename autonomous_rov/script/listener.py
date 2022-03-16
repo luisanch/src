@@ -240,7 +240,7 @@ def subscriber():
 
 
 if __name__ == '__main__':
-	# armDisarm(False) # Not automatically disarmed at startup
+	armDisarm(False) # Not automatically disarmed at startup
 	rospy.init_node('autonomous_MIR', anonymous=False)
 	pub_msg_override = rospy.Publisher("mavros/rc/override", OverrideRCIn, queue_size=10, tcp_nodelay=True)
 	pub_angle_degre = rospy.Publisher('angle_degree', Twist, queue_size=10, tcp_nodelay=True)
