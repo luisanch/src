@@ -1,9 +1,9 @@
 <launch>    
     <arg name="depth_kp" default="1.0"/>
-    <arg name="depth_ki" default="1.0"/>
-    <arg name="depth_kd" default="1.0"/>
-    <arg name="depth_upper_limit" default="100.0"/>
-    <arg name="depth_lower_limit" default="0.0"/> 
+    <arg name="depth_ki" default="0.0"/>
+    <arg name="depth_kd" default="0.0"/>
+    <arg name="depth_upper_limit" default="3.0"/>
+    <arg name="depth_lower_limit" default="-3.0"/> 
 
     <node name="pid_depth" pkg="pid" type="controller" >
       <param name="Kp" value="$(arg depth_kp)" />
