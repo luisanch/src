@@ -51,6 +51,12 @@ custom_PID = True
 counter = 0
 t1 = 0
 dt = 0
+
+##----alpha beta gamma filter variables------##
+xk_1 = 0
+vk_1 = 0
+ak_1 = 0
+
 def joyCallback(data):
 	global arming
 	global set_mode
@@ -187,6 +193,7 @@ def PressureCallback(data):
 		if (init_p0):
 			# 1st execution, init
 			depth_p0 += (pressure - 101300)/(rho*g)
+			Alpha_Beta_Filter(depth_p0)
 			counter += 1
 			if(counter == 100):
 				depth_p0 /= 100
@@ -194,6 +201,8 @@ def PressureCallback(data):
     
 		else:
 			depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
+			Alpha_Beta_Filter(depth_p0)
+
 			if(custom_PID):
 				ControlDepth(0.5, depth_wrt_startup)
 			# else:
@@ -252,7 +261,7 @@ def setOverrideRCIN(channel_pitch, channel_roll, channel_throttle, channel_yaw, 
 	msg_override.channels[5] = np.uint(channel_lateral)		#pulseCmd[1]  # lateral		Gauche/droite
 	msg_override.channels[6] = 1500
 	msg_override.channels[7] = 1500
-	# print("<3=====D ",msg_override)
+	
 	pub_msg_override.publish(msg_override)
 
 def DoThing(msg):
@@ -262,6 +271,7 @@ def DoThing(msg):
 
 def PI_Controller_With_Comp(z_desired, z_actual):
 		global args
+		global vk_1
     
     # P part of PID
 		e = z_desired - z_actual  # Error between the real and desired value
@@ -279,11 +289,47 @@ def PI_Controller_With_Comp(z_desired, z_actual):
 
 		# if use alpha-beta filter to add the D of PID
 		if args.use_alpha_beta:
-			z_d = 0
+			z_d = vk_1
 			Tau += args.kd * z_d  # Derivative controller
 		
     
 		return -Tau, I0
+
+def Set_Alpha_Beta_Filter(xk_1_in, vk_1_in, ak_1_in):
+	global xk_1
+	global vk_1
+	global ak_1  
+
+	xk_1 = xk_1_in
+	vk_1 = vk_1_in
+	ak_1 = ak_1_in 
+
+def Alpha_Beta_Filter(xm):
+	global xk_1
+	global vk_1
+	global ak_1  
+
+	dt = 0.02
+
+	a = 0.45
+	b = 0.1
+	g = 0.000
+
+	xk = xk_1 + (vk_1 * dt)
+	vk = vk_1 + (ak_1 * dt)
+	ak = (vk - vk_1) /dt
+
+	rk = xm - xk
+
+	xk += a*rk
+	vk += (b*rk)/dt
+	ak += (2*g*rk)/np.power(dt,2)
+
+	xk_1 = xk
+	vk_1 = vk
+	ak_1 = ak    
+
+	return xk, vk, ak
 
 def PIDControlCallback(pid_effort, floatability = 0):
 	thrust_req = floatability + pid_effort.data
@@ -304,6 +350,7 @@ def ControlDepth(z_desired, z_actual):
 		m = 132.7
 		c = 1460
 	pwm = int(m*thrust_req/4) + c
+
 	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
 
 def EnableDepthCallback(msg):
