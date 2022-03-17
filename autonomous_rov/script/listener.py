@@ -45,6 +45,12 @@ enable_depth = False # Don't Publish the depth data until asked
 I0 = 0 				# Error Accumulation
 custom_PID = True
 counter = 0
+
+##----alpha beta gamma filter variables------##
+xk_1 = 0
+vk_1 = 0
+ak_1 = 0
+
 def joyCallback(data):
 	global arming
 	global set_mode
@@ -259,6 +265,42 @@ def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g):
     I0 = I                               #Update the initial value of integral controller 
     
     return -Tau, I0
+
+def Set_Alpha_Beta_Filter(xk_1_in, vk_1_in, ak_1_in):
+	global xk_1
+	global vk_1
+	global ak_1  
+
+	xk_1 = xk_1_in
+	vk_1 = vk_1_in
+	ak_1 = ak_1_in 
+
+def Alpha_Beta_Filter(xm):
+	global xk_1
+	global vk_1
+	global ak_1  
+
+	dt = 0.5
+
+	a = 0.45
+	b = 0.1
+	g = 0.000
+
+	xk = xk_1 + (vk_1 * dt)
+	vk = vk_1 + (ak_1 * dt)
+	ak = (vk - vk_1) /dt
+
+	rk = xm - xk
+
+	xk += a*rk
+	vk += (b*rk)/dt
+	ak += (2*g*rk)/np.power(dt,2)
+
+	xk_1 = xk
+	vk_1 = vk
+	ak_1 = ak    
+
+	return xk, vk, ak
 
 def PIDControlCallback(pid_effort, floatability = 0):
 	thrust_req = floatability + pid_effort.data
