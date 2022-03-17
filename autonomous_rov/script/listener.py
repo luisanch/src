@@ -178,7 +178,7 @@ def PressureCallback(data):
 
 		if(custom_PID):
 			ControlDepth(0.5, depth_wrt_startup)
-		else:
+		# else:
 			msg = Float64()
 			msg.data = depth_wrt_startup
 			pub_depth.publish(msg)
@@ -243,13 +243,14 @@ def DoThing(msg):
 
 def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g):
     
-    e = x_real - x_desired               #Error between the real and desired value 
+    e = x_desired - x_real  # Error between the real and desired value
     P = K_P * e                          #Proportional controller 
     I = I0 + K_I * e * step              #Integral controller
-    Tau = P + I + g                      #Output of the PID controller 
+    Tau = P + g
+    # Tau = P + I + g                      #Output of the PID controller 
     I0 = I                               #Update the initial value of integral controller 
     
-    return Tau, I0
+    return -Tau, I0
 
 def PIDControlCallback(pid_effort, floatability = 0):
 	thrust_req = floatability + pid_effort.data
@@ -260,13 +261,17 @@ def PIDControlCallback(pid_effort, floatability = 0):
 
 def ControlDepth(z_desired, z_actual):
 	global I0
-	K_P = 10
+	K_P = 2
 	K_I = 0
 	step = 0
-	g = 0.4
+	g = 0.3
 	thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual, K_P, K_I, step, I0 ,g)
-	m = 76
-	c = 1532
+	if thrust_req >= 0:
+		m = 104.4
+		c = 1540
+	else:
+		m = 132.7
+		c = 1460
 	pwm = int(m*thrust_req/4) + c
 	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
 
@@ -281,7 +286,7 @@ def subscriber():
 	rospy.Subscriber("cmd_vel", Twist, velCallback)
 	rospy.Subscriber("mavros/imu/data", Imu, OdoCallback)
 	rospy.Subscriber("mavros/imu/water_pressure", FluidPressure, PressureCallback)
-	rospy.Subscriber("pid/depth/control_effor", Float64, PIDControlCallback)
+	rospy.Subscriber("pid/depth/control_effort", Float64, PIDControlCallback)
 	rospy.Subscriber("enable_depth", Empty, EnableDepthCallback)
 	rospy.Subscriber("do/thing", Int16, DoThing)
 	rospy.spin() # Execute subscriber in loop

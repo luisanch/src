@@ -6,15 +6,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def linear_eq(x, m):
-    return m*x + 1532
+    # return m*x + 1532
+    return m*x + 1540
     
 def linear_eq_below(x, m):
-    return m*x + 1468
+    # return m*x + 1468
+    return m*x + 1460
 
 def compute_pwm(f, m, c):
     return m*f + c
 file_name = 't200.xls'
-sheet_name = '16 V'
+sheet_name = '12 V'
 file_path = os.path.abspath(os.getcwd()) + '/data/' + file_name
 data = pd.read_excel(file_path, sheet_name=sheet_name)
 

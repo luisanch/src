@@ -1,4 +1,5 @@
-<launch>    
+<launch>
+    <group ns="br2">    
     <arg name="depth_kp" default="1.0"/>
     <arg name="depth_ki" default="0.0"/>
     <arg name="depth_kd" default="0.0"/>
@@ -19,4 +20,5 @@
       <remap from="control_effort" to="pid/depth/control_effort"/>
       <remap from="state" to="pid/depth/state"/>
     </node>
+    </group>
 </launch>

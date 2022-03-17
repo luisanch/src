@@ -2,3 +2,4 @@ log/
 mavlink/
 mavros/
 .vscode
+*.bag
