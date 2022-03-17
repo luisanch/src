@@ -245,7 +245,9 @@ def PIDControlCallback(pid_effort):
 
 def EnableDepthCallback(msg):
 	global enable_depth
+	global init_p0
 	enable_depth = True
+	init_p0 = True
 
 def subscriber():
 	rospy.Subscriber("joy", Joy, joyCallback)
