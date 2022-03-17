@@ -8,7 +8,7 @@
   <!-- <include file="$(find bluerov)/launch/apm.launch" /> -->
 
   <!-- start joy_node -->
-    <group ns="br5">
+    <group ns="br2">
     <node respawn="true" pkg="joy" type="joy_node" name="joy_node" output="screen">
       <param name="dev" value="/dev/input/js0" type="string"/>
     </node>
