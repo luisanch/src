@@ -40,7 +40,8 @@ set_mode[0] = True	# Mode manual
 set_mode[1] = False	# Mode automatic without correction
 set_mode[2] = False	# Mode with correction
 enable_depth = False # Don't Publish the depth data until asked
-
+I0 = 0 				# Error Accumulation
+custom_PID = True
 def joyCallback(data):
 	global arming
 	global set_mode
@@ -161,6 +162,7 @@ def PressureCallback(data):
 	global depth_wrt_startup
 	global init_p0
 	global enable_depth
+	global custom_PID
 
 	rho = 1000.0 # 1025.0 for sea water
 	g = 9.80665
@@ -174,9 +176,13 @@ def PressureCallback(data):
 
 		depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
 
-		msg = Float64()
-		msg.data = depth_wrt_startup
-		pub_depth.publish(msg)
+		if(custom_PID):
+			ControlDepth(0.5, depth_wrt_startup)
+		else:
+			msg = Float64()
+			msg.data = depth_wrt_startup
+			pub_depth.publish(msg)
+
 
 	# Only continue if manual_mode is disabled
 	if (set_mode[0]):
@@ -235,9 +241,30 @@ def DoThing(msg):
 	print(msg.data)
 	setOverrideRCIN(1500, 1500, msg.data, 1500, 1500, 1500)
 
-def PIDControlCallback(pid_effort):
-	floatability = 0
+def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g):
+    
+    e = x_real - x_desired               #Error between the real and desired value 
+    P = K_P * e                          #Proportional controller 
+    I = I0 + K_I * e * step              #Integral controller
+    Tau = P + I + g                      #Output of the PID controller 
+    I0 = I                               #Update the initial value of integral controller 
+    
+    return Tau, I0
+
+def PIDControlCallback(pid_effort, floatability = 0):
 	thrust_req = floatability + pid_effort.data
+	m = 76
+	c = 1532
+	pwm = int(m*thrust_req/4) + c
+	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
+
+def ControlDepth(z_desired, z_actual):
+	global I0
+	K_P = 10
+	K_I = 0
+	step = 0
+	g = 0.4
+	thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual, K_P, K_I, step, I0 ,g)
 	m = 76
 	c = 1532
 	pwm = int(m*thrust_req/4) + c
