@@ -5,6 +5,7 @@ import tf
 import math
 from std_msgs.msg import Int16
 from std_msgs.msg import Float64
+from std_msgs.msg import Empty
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from mavros_msgs.msg import OverrideRCIn
@@ -38,7 +39,7 @@ set_mode = [0]*3
 set_mode[0] = True	# Mode manual
 set_mode[1] = False	# Mode automatic without correction
 set_mode[2] = False	# Mode with correction
-
+enable_depth = False # Don't Publish the depth data until asked
 
 def joyCallback(data):
 	global arming
@@ -159,21 +160,23 @@ def PressureCallback(data):
 	global depth_p0
 	global depth_wrt_startup
 	global init_p0
+	global enable_depth
+
 	rho = 1000.0 # 1025.0 for sea water
 	g = 9.80665
 
-	pressure = data.fluid_pressure
+	if(enable_depth):
+		pressure = data.fluid_pressure
+		if (init_p0):
+			# 1st execution, init
+			depth_p0 = (pressure - 101300)/(rho*g)
+			init_p0 = False
 
-	if (init_p0):
-		# 1st execution, init
-		depth_p0 = (pressure - 101300)/(rho*g)
-		init_p0 = False
+		depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
 
-	depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
-
-	msg = Float64()
-	msg.data = depth_wrt_startup
-	pub_depth.publish(msg)
+		msg = Float64()
+		msg.data = depth_wrt_startup
+		pub_depth.publish(msg)
 
 	# Only continue if manual_mode is disabled
 	if (set_mode[0]):
@@ -240,12 +243,17 @@ def PIDControlCallback(pid_effort):
 	pwm = int(m*thrust_req/4) + c
 	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
 
+def EnableDepthCallback(msg):
+	global enable_depth
+	enable_depth = True
+
 def subscriber():
 	rospy.Subscriber("joy", Joy, joyCallback)
 	rospy.Subscriber("cmd_vel", Twist, velCallback)
 	rospy.Subscriber("mavros/imu/data", Imu, OdoCallback)
 	rospy.Subscriber("mavros/imu/water_pressure", FluidPressure, PressureCallback)
 	rospy.Subscriber("pid/depth/control_effor", Float64, PIDControlCallback)
+	rospy.Subscriber("enable_depth", Empty, EnableDepthCallback)
 	rospy.Subscriber("do/thing", Int16, DoThing)
 	rospy.spin() # Execute subscriber in loop
 
