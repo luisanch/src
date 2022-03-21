@@ -18,8 +18,12 @@ fig.show()
 fig.canvas.show
 plt.axis([0, 1000, 0, 1.5])
 
-for i in range(1000):
-    xm = np.random.rand(1)
+in_array = np.linspace(-np.pi, np.pi, 600)
+out_array = np.sin(in_array)
+
+for i in range(600):
+    # xm = np.random.rand(1)
+    xm = np.sin(in_array[i]) + np.random.uniform(0,.2)
 
     xk = xk_1 + (vk_1 * dt)
     vk = vk_1 + (ak_1 * dt)
