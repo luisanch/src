@@ -9,7 +9,7 @@ ak_1 = 0
 
 a = 0.45
 b = 0.1
-g = 0.000
+g = 0.0000
 
 iteration = 0
 
@@ -18,12 +18,15 @@ fig.show()
 fig.canvas.show
 plt.axis([0, 1000, 0, 1.5])
 
-in_array = np.linspace(-np.pi, np.pi, 600)
+in_array = np.linspace(-np.pi, np.pi, 1000)
 out_array = np.sin(in_array)
 
-for i in range(600):
+for i in range(1000):
     # xm = np.random.rand(1)
-    xm = np.sin(in_array[i]) + np.random.uniform(0,.2)
+    noise = np.random.binomial(1, 0.05) * np.random.uniform(-.15,.15)
+    print (noise)
+
+    xm = np.sin(in_array[i]) + noise
 
     xk = xk_1 + (vk_1 * dt)
     vk = vk_1 + (ak_1 * dt)
@@ -39,10 +42,11 @@ for i in range(600):
     vk_1 = vk
     ak_1 = ak
 
-    print("xk = " ,xk, "vk = " ,vk, "ak = ",ak)
+    # print("xk = " ,xk, "vk = " ,vk, "ak = ",ak)
     iteration += 1
     #plt.axis([0, 20+iteration, 0, 1.5])
     plt.plot(iteration,xm,'k+')
     plt.plot(iteration,xk,'b*')
     plt.pause(0.025)
     plt.draw()
+plt.draw()
