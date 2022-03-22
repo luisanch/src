@@ -23,7 +23,7 @@ def linear_eq_below(x, m):
 def compute_pwm(f, m, c):
     return m*f + c
 file_name = 't200.xls'
-sheet_name = '16 V'
+sheet_name = '12 V'
 file_path = os.path.abspath(os.getcwd()) + '/data/' + file_name
 data = pd.read_excel(file_path, sheet_name=sheet_name)
 
@@ -77,7 +77,7 @@ plt.annotate(f'-ve thrust start at {c2}', xy=(0, c2),  xycoords='data',
 plt.show()
 
 required_thrust = 1.5/4
-required_pwm = compute_pwm(required_thrust, result_above[0][0], 1532)
+required_pwm = compute_pwm(required_thrust, result_above[0][0], c1)
 print(f'Requireed PWM for {required_thrust} thrust is {required_pwm}')
 
 
