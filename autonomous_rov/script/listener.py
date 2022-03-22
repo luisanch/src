@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from itertools import count
 import rospy
 import tf
 import math
@@ -29,6 +30,7 @@ angle_wrt_startup = [0]*3
 init_a0 = True
 
 depth_wrt_startup = 0
+depth_p0 = 0
 init_p0 = True
 
 Vmax_mot = 1900
@@ -42,6 +44,7 @@ set_mode[2] = False	# Mode with correction
 enable_depth = False # Don't Publish the depth data until asked
 I0 = 0 				# Error Accumulation
 custom_PID = True
+counter = 0
 def joyCallback(data):
 	global arming
 	global set_mode
@@ -163,6 +166,7 @@ def PressureCallback(data):
 	global init_p0
 	global enable_depth
 	global custom_PID
+	global counter
 
 	rho = 1000.0 # 1025.0 for sea water
 	g = 9.80665
@@ -171,17 +175,21 @@ def PressureCallback(data):
 		pressure = data.fluid_pressure
 		if (init_p0):
 			# 1st execution, init
-			depth_p0 = (pressure - 101300)/(rho*g)
-			init_p0 = False
+			depth_p0 += (pressure - 101300)/(rho*g)
+			counter += 1
+			if(counter == 100):
+				depth_p0 /= 100
+				init_p0 = False
+    
+		else:
+			depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
 
-		depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
-
-		if(custom_PID):
-			ControlDepth(0.5, depth_wrt_startup)
-		# else:
-			msg = Float64()
-			msg.data = depth_wrt_startup
-			pub_depth.publish(msg)
+			if(custom_PID):
+				ControlDepth(0.5, depth_wrt_startup)
+			# else:
+				msg = Float64()
+				msg.data = depth_wrt_startup
+				pub_depth.publish(msg)
 
 
 	# Only continue if manual_mode is disabled
@@ -246,8 +254,8 @@ def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g):
     e = x_desired - x_real  # Error between the real and desired value
     P = K_P * e                          #Proportional controller 
     I = I0 + K_I * e * step              #Integral controller
-    Tau = P + g
-    # Tau = P + I + g                      #Output of the PID controller 
+    # Tau = P + g
+    Tau = P + I + g                      #Output of the PID controller 
     I0 = I                               #Update the initial value of integral controller 
     
     return -Tau, I0
@@ -262,8 +270,8 @@ def PIDControlCallback(pid_effort, floatability = 0):
 def ControlDepth(z_desired, z_actual):
 	global I0
 	K_P = 2
-	K_I = 0
-	step = 0
+	K_I = 0.01
+	step = 0.02
 	g = 0.3
 	thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual, K_P, K_I, step, I0 ,g)
 	if thrust_req >= 0:
@@ -278,6 +286,8 @@ def ControlDepth(z_desired, z_actual):
 def EnableDepthCallback(msg):
 	global enable_depth
 	global init_p0
+	global counter
+	counter = 0
 	enable_depth = True
 	init_p0 = True
 
