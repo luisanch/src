@@ -17,6 +17,9 @@ idx = 0
 ### Loop over all files
 for file in fileNames:
 
+    if file.find("0.005_no_wall_2") == -1:
+        continue
+
     ### Read .csv file and append to list
     df = pd.read_csv(PATH + file, index_col = None)
     # bias = np.average (np.array(df['field.data'].tolist())[:5])
