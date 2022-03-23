@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(FILES
   Thruster.msg
   Health.msg
+  PIDParams.msg
 )
 
 ## Generate added messages and services

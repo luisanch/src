@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from email.header import Header
 from itertools import count
 import rospy
 import tf
@@ -9,6 +10,7 @@ from std_msgs.msg import Float64
 from std_msgs.msg import Empty
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
+from autonomous_rov.msg import PIDParams
 from mavros_msgs.msg import OverrideRCIn
 from sensor_msgs.msg import Joy
 from sensor_msgs.msg import Imu
@@ -45,6 +47,8 @@ enable_depth = False # Don't Publish the depth data until asked
 I0 = 0 				# Error Accumulation
 custom_PID = True
 counter = 0
+t1 = 0
+dt = 0
 def joyCallback(data):
 	global arming
 	global set_mode
@@ -167,12 +171,17 @@ def PressureCallback(data):
 	global enable_depth
 	global custom_PID
 	global counter
+	global t1
+	global dt
 
 	rho = 1000.0 # 1025.0 for sea water
 	g = 9.80665
 
 	if(enable_depth):
 		pressure = data.fluid_pressure
+		t2 = rospy.Time.now().to_sec()
+		dt = t2 - t1
+		t1 = t2
 		if (init_p0):
 			# 1st execution, init
 			depth_p0 += (pressure - 101300)/(rho*g)
@@ -183,7 +192,6 @@ def PressureCallback(data):
     
 		else:
 			depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
-
 			if(custom_PID):
 				ControlDepth(0.5, depth_wrt_startup)
 			# else:
@@ -249,16 +257,26 @@ def DoThing(msg):
 	print(msg.data)
 	setOverrideRCIN(1500, 1500, msg.data, 1500, 1500, 1500)
 
-def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g):
+
+def PI_Controller_With_Comp(pid_params):
     
-    e = x_desired - x_real  # Error between the real and desired value
-    P = K_P * e                          #Proportional controller 
-    I = I0 + K_I * e * step              #Integral controller
-    # Tau = P + g
-    Tau = P + I + g                      #Output of the PID controller 
-    I0 = I                               #Update the initial value of integral controller 
+		e = pid_params.z_err  # Error between the real and desired value
+		P = pid_params.kp * e  # Proportional controller
+		step = pid_params.step if pid_params.use_step else pid_params.dt
+		I = I0 + pid_params.ki * e * step              #Integral controller
+		Tau = P + pid_params.g
+  
+		if pid_params.use_ki:
+			Tau += I                   #Output of the PID controller 
+
+		if pid_params.use_kd:
+			Tau += pid_params.kd * pid_params.z_d
+
+		I0 = I                               #Update the initial value of integral controller
+  
+		
     
-    return -Tau, I0
+		return -Tau, I0
 
 def PIDControlCallback(pid_effort, floatability = 0):
 	thrust_req = floatability + pid_effort.data
@@ -269,11 +287,26 @@ def PIDControlCallback(pid_effort, floatability = 0):
 
 def ControlDepth(z_desired, z_actual):
 	global I0
-	K_P = 2
-	K_I = 0.01
-	step = 0.02
-	g = 0.3
-	thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual, K_P, K_I, step, I0 ,g)
+	global dt
+	pid_params = PIDParams()
+	pid_params.header.stamp.from_sec(rospy.Time.now().to_sec())
+	pid_params.kp = K_P = 2
+	pid_params.ki = K_I = 0.01
+	pid_params.kd = K_D = 0.0
+	pid_params.step = step = 0.02
+	pid_params.g = g = 0.3
+	pid_params.z = z_actual
+	pid_params.z_err = z_desired - z_actual
+	pid_params.z_I = I0
+	pid_params.z_d = 0 #NOTE:: put here the derivative err
+	pid_params.dt = dt
+	pid_params.use_step = use_step = False
+	pid_params.use_kd = use_kd = True
+	pid_params.use_ki = use_ki = True
+	pid_params.use_alpha_beta = use_alpha_beta = True
+
+	thrust_req, I0 = PI_Controller_With_Comp(pid_params)
+	pub_pid_params.publish(pid_params)
 	if thrust_req >= 0:
 		m = 104.4
 		c = 1540
@@ -308,6 +341,8 @@ if __name__ == '__main__':
 	pub_msg_override = rospy.Publisher("mavros/rc/override", OverrideRCIn, queue_size=10, tcp_nodelay=True)
 	pub_angle_degre = rospy.Publisher('angle_degree', Twist, queue_size=10, tcp_nodelay=True)
 	pub_depth = rospy.Publisher('pid/depth/state', Float64, queue_size=10, tcp_nodelay=True)
+	pub_pid_params = pub_depth = rospy.Publisher(
+		'pid/params', PIDParams, queue_size=10, tcp_nodelay=True)
 	subscriber()
 
 
