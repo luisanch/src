@@ -182,6 +182,7 @@ def PressureCallback(data):
 		if (init_p0):
 			# 1st execution, init
 			depth_p0 += (pressure - 101300)/(rho*g)
+			Alpha_Beta_Filter(depth_p0)
 			counter += 1
 			if(counter == 100):
 				depth_p0 /= 100
@@ -189,6 +190,7 @@ def PressureCallback(data):
     
 		else:
 			depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
+			Alpha_Beta_Filter(depth_p0)
 
 			if(custom_PID):
 				ControlDepth(0.5, depth_wrt_startup)
@@ -255,13 +257,14 @@ def DoThing(msg):
 	print(msg.data)
 	setOverrideRCIN(1500, 1500, msg.data, 1500, 1500, 1500)
 
-def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g):
+def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g, K_D = 0.00 ,v_estimation = 0):
     
     e = x_desired - x_real  # Error between the real and desired value
     P = K_P * e                          #Proportional controller 
     I = I0 + K_I * e * step              #Integral controller
+    D = K_D * v_estimation
     # Tau = P + g
-    Tau = P + I + g                      #Output of the PID controller 
+    Tau = P + I + D + g                      #Output of the PID controller 
     I0 = I                               #Update the initial value of integral controller 
     
     return -Tau, I0
@@ -310,12 +313,14 @@ def PIDControlCallback(pid_effort, floatability = 0):
 	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
 
 def ControlDepth(z_desired, z_actual):
-	global I0
+	global I0, xk_1, vk_1
 	K_P = 2
 	K_I = 0.01
+	K_D = 0.01
 	step = 0.02
 	g = 0.3
-	thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual, K_P, K_I, step, I0 ,g)
+	thrust_req, I0 = PI_Controller_With_Comp(z_desired, xk_1, K_P, K_I, step, I0 ,g, K_D, vk_1)
+	print(xk_1, vk_1)
 	if thrust_req >= 0:
 		m = 104.4
 		c = 1540
@@ -323,6 +328,7 @@ def ControlDepth(z_desired, z_actual):
 		m = 132.7
 		c = 1460
 	pwm = int(m*thrust_req/4) + c
+
 	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
 
 def EnableDepthCallback(msg):
@@ -351,10 +357,3 @@ if __name__ == '__main__':
 	pub_angle_degre = rospy.Publisher('angle_degree', Twist, queue_size=10, tcp_nodelay=True)
 	pub_depth = rospy.Publisher('pid/depth/state', Float64, queue_size=10, tcp_nodelay=True)
 	subscriber()
-
-
-
-
-
-
-
