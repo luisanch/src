@@ -280,7 +280,7 @@ def Alpha_Beta_Filter(xm):
 	global vk_1
 	global ak_1  
 
-	dt = 0.5
+	dt = 0.02
 
 	a = 0.45
 	b = 0.1
