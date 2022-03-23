@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ### Set your path to the folder containing the .csv files
-PATH = './' # Use your path
+PATH = './bags/' # Use your path
 
 ### Fetch all files in path
 fileNames = os.listdir(PATH)
@@ -17,8 +17,6 @@ idx = 0
 ### Loop over all files
 for file in fileNames:
 
-    if file.find("0.005_no_wall_2") == -1:
-        continue
 
     ### Read .csv file and append to list
     df = pd.read_csv(PATH + file, index_col = None)
