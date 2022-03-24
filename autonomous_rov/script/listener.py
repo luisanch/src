@@ -268,10 +268,14 @@ def DoThing(msg):
 
 def PI_Controller_With_Comp(z_desired, z_actual):
 		global args
-		global vk_1
+		global vk_1, xk_1
 		global dt
 		global I0
     # P part of PID
+
+		if args.use_x_k :
+			z_actual = xk_1
+
 		e = z_desired - z_actual  # Error between the real and desired value
 		P = args.kp * e  # Proportional controller  
 
@@ -388,6 +392,7 @@ if __name__ == '__main__':
 	parser.add_argument('--beta', type=float, default=0.1)
 
 	parser.add_argument('--use_step', action='store_true')
+	parser.add_argument('--use_x_k', action='store_true')
 	parser.add_argument('--step', type=float, default=0.02)
 	parser.add_argument('--g', type=float, default=-0.3)
 
