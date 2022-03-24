@@ -35,7 +35,7 @@
     ></node>
     <!-- Record bag -->
     <node name="bag_record" pkg="rosbag" type="record"
-        args="record -o $(find autonomous_rov)/bags/$(arg bag_name) /$(arg ns)/pid/depth/state /$(arg ns)/mavros/rc/override"/>
+        args="record -o $(find autonomous_rov)/bags/$(arg bag_name) /$(arg ns)/pid/depth/state /$(arg ns)/mavros/rc/override /$(arg ns)/mavros/imu/data /($arg ns)/mavros/imu/water_pressure"/>
     </group>
 </launch>
 
