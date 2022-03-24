@@ -32,7 +32,7 @@
     <node respawn="true" pkg="autonomous_rov" type="listener.py" name="listener" output="screen" args="--kp $(arg kp) --ki $(arg ki) --kd $(arg kd) --alpha $(arg alpha) --beta $(arg beta) --g $(arg g) --step $(arg step) --use_ki --use_alpha_beta"></node>
     <!-- Record bag -->
     <node name="bag_record" pkg="rosbag" type="record"
-        args="record -o $(find autonomous_rov)/bags/$(arg bag_name) /$(arg ns)/pid/depth/state /$(arg ns)/mavros/rc/override /$(arg ns)/mavros/imu/data /$(arg ns)/mavros/imu/water_pressure"/>
+        args="record -o $(find autonomous_rov)/bags/$(arg bag_name).bag /$(arg ns)/pid/depth/state /$(arg ns)/mavros/rc/override /$(arg ns)/mavros/imu/data /$(arg ns)/mavros/imu/water_pressure"/>
     </group>
 </launch>
 
