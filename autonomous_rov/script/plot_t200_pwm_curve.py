@@ -23,7 +23,7 @@ def linear_eq_below(x, m):
 def compute_pwm(f, m, c):
     return m*f + c
 file_name = 't200.xls'
-sheet_name = '16 V'
+sheet_name = '12 V'
 file_path = os.path.abspath(os.getcwd()) + '/data/' + file_name
 data = pd.read_excel(file_path, sheet_name=sheet_name)
 

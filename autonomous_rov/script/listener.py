@@ -269,12 +269,13 @@ def PressureCallback(data):
                     counter += 1
                     if counter == len(traj):
                         counter -= 1
+                    # rospy.sleep(0.02)
                 else:
                     ControlDepth(desired_depth, depth_wrt_startup)
             # else:
-                    msg = Float64()
-                    msg.data = depth_wrt_startup
-                    pub_depth.publish(msg)
+                msg = Float64()
+                msg.data = depth_wrt_startup
+                pub_depth.publish(msg)
 
     # Only continue if manual_mode is disabled
     if (set_mode[0]):

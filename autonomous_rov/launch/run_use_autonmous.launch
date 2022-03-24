@@ -10,9 +10,9 @@
   <!-- start joy_node -->
     <group ns="br2">
     <arg name="ns" default="br2"/>
-    <!-- <node respawn="true" pkg="joy" type="joy_node" name="joy_node" output="screen">
+    <node respawn="true" pkg="joy" type="joy_node" name="joy_node" output="screen">
       <param name="dev" value="/dev/input/js0" type="string"/>
-    </node> -->
+    </node>
 
     <!-- start telexbox to convert joystick values into vel -->
     <node pkg="autonomous_rov" type="teleop_xbox" name="teleop_xbox" output="screen">
@@ -20,16 +20,16 @@
 
     <arg name="arg1" default="--device /dev/ttyUSB0"/>
 
-    <arg name="kp" default="2"/>
-    <arg name="ki" default="0.005"/>
-    <arg name="kd" default="0.01"/>
+    <arg name="kp" default="0.5"/>
+    <arg name="ki" default="0.001"/>
+    <arg name="kd" default="0.0005"/>
     <arg name="alpha" default="0.45"/>
     <arg name="beta" default="0.1"/>
     <arg name="step" default="0.02"/>
-    <arg name="g" default="-0.3"/> 
+    <arg name="g" default="0.57"/> <!--0.45 -->
     <arg name="bag_name" default="kp=$(arg kp)_ki=$(arg ki)_kd=$(arg kd)_alpha=$(arg alpha)_beta=$(arg beta)_g=$(arg g)_step=$(arg step)"/>
 
-    <node respawn="true" pkg="autonomous_rov" type="listener.py" name="listener" output="screen" args="--kp $(arg kp) --ki $(arg ki) --kd $(arg kd) --alpha $(arg alpha) --beta $(arg beta) --g $(arg g) --step $(arg step) --use_ki --use_alpha_beta --use_x_k --use_traj" ></node>
+    <node respawn="true" pkg="autonomous_rov" type="listener.py" name="listener" output="screen" args="--kp $(arg kp) --ki $(arg ki) --kd $(arg kd) --alpha $(arg alpha) --beta $(arg beta) --g $(arg g) --step $(arg step) --use_ki --use_step --use_alpha_beta --use_x_k --use_traj" ></node>
     <!-- Record bag -->
     <node name="bag_record" pkg="rosbag" type="record"
         args="record -o $(find autonomous_rov)/bags/$(arg bag_name).bag /$(arg ns)/pid/depth/state /$(arg ns)/mavros/rc/override /$(arg ns)/mavros/imu/data /$(arg ns)/mavros/imu/water_pressure"/>
