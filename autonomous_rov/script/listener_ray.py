@@ -15,36 +15,45 @@ from sensor_msgs.msg import Imu
 from sensor_msgs.msg import FluidPressure
 from mavros_msgs.srv import CommandLong
 from geometry_msgs.msg import Twist
-
-
-
+from PI_Controller import PI_Controller_With_Comp
+from SM_Controller import SM_Controller
+from alpha_beta_gamma_filter import alpha_beta_gamma_filter
 # ---------- Global Variables ---------------
+global enable_depth
+global init_p0
+global counter
+global depth_p0
+global depth_wrt_startup
+global custom_PID
+global custom_SM
 Command_Vel = [0]*3
 Command_Vel[0] = 0.5	# Cmd along X
 Command_Vel[1] = 0		# Cmd along Y
 Command_Vel[2] = 0		# Cmd along Z
-
 Error_Vel = [0]*3		#Error velocity 
-
-angle_wrt_startup = [0]*3 
-init_a0 = True
-
-depth_wrt_startup = 0
-depth_p0 = 0
-init_p0 = True
-
+set_mode = [0]*3
 Vmax_mot = 1900
 Vmin_mot = 1100
-
-arming = False
-set_mode = [0]*3
-set_mode[0] = True				# Mode manual
-set_mode[1] = False				# Mode automatic without correction
-set_mode[2] = False				# Mode with correction
-enable_depth = False 			# Don't Publish the depth data until asked
-								# Error Accumulation
-custom_PID = True
+angle_wrt_startup = [0]*3 
+depth_wrt_startup = 0
+depth_p0 = 0
 counter = 0
+
+#Conditions 
+init_a0 = True
+init_p0 = True
+enable_depth = False 	#Don't Publish the depth data until asked
+arming = False
+set_mode[0] = True		#Mode manual
+set_mode[1] = False		#Mode automatic without correction
+set_mode[2] = False		#Mode with correction
+
+custom_PID = False		#Correction with PID_controller
+custom_SM = False		#Correction with SM_controller
+
+
+
+
 def joyCallback(data):
 	global arming
 	global set_mode
@@ -160,37 +169,55 @@ def OdoCallback(data):
 	pub_angle_degre.publish(angle)
 
 
+
 def PressureCallback(data):
-	global depth_p0
-	global depth_wrt_startup
-	global init_p0
-	global enable_depth
-	global custom_PID
-	global counter
-
-	rho = 1000.0 # 1025.0 for sea water
+	depth_desired = 0.5
+	speed_desired = 0 
+	constant_vector = np.array([0.1, 1])
+	K = 0.5
+	phi = 0.2
+	rho = 1000.0    #1025.0 for sea water
 	g = 9.80665
+	x_e0 = 0		#initial position 
+	v_e0 = 0		#initial velocity
+	a_e0 = 0		#initial acceleration
+	alpha = 0.45	#alpha coef for alpha beta gama filter 
+	beta = 0.1		#beta coef for alpha beta gama filter 
+	fs = 20			#frequence
+	step = 1 / fs	#step time
 
-	if(enable_depth ):
+	if(enable_depth):
 		pressure = data.fluid_pressure
 		if (init_p0):
-			# 1st execution, init
-			depth_p0 += (pressure - 101300)/(rho*g)
-			counter += 1
-			if(counter == 100):
-				depth_p0 /= 100
-				init_p0 = False
-    
-		else:
-			depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0
+            # 1st execution, init
+			depth_p0 += (pressure - 101300)/(rho*g)   
+			counter +=1
+			#calculat the average depth in order to minimize noises 
+			if (counter == 100):
+				depth_p0 /=100				#The average of the depth 
+				init_p0 = False    
+			
+		depth_wrt_startup = (pressure - 101300)/(rho*g) - depth_p0		#depth measured 
 
-			if(custom_PID):
-				ControlDepth(0.5, depth_wrt_startup)
-			# else:
-				msg = Float64()
-				msg.data = depth_wrt_startup
-				pub_depth.publish(msg)
+		# setup depth servo control here
+		if(custom_PID):	
+			
+			thrust_req = Depth_Control(depth_desired , depth_wrt_startup)
+			
+		if(custom_SM):
+			real_Speed, x_e, a_e = alpha_beta_gamma_filter(x_e0, v_e0, a_e0, depth_wrt_startup, alpha, beta, step)
+			thrust_req = SM_Controller(depth_desired, depth_wrt_startup, speed_desired , real_Speed, constant_vector, K, phi)
+			v_e0 = real_Speed
+			x_e0 = v_e0
+			a_e0 = a_e
 
+		#Send PWM commands to motors
+		PWM = PWM_Cmd(thrust_req)
+		setOverrideRCIN(1500, 1500, PWM, 1500, 1500, 1500)
+		#publish depth_wrt_startup data 
+		msg = Float64()
+		msg.data = depth_wrt_startup
+		pub_depth.publish(msg) 
 
 	# Only continue if manual_mode is disabled
 	if (set_mode[0]):
@@ -200,7 +227,6 @@ def PressureCallback(data):
 		# Define an arbitrary velocity command and observe robot's velocity
 		setOverrideRCIN(1500, 1500, 1500, 1500, 1700, 1500)
 		return
-
 
 
 
@@ -228,12 +254,12 @@ def setOverrideRCIN(channel_pitch, channel_roll, channel_throttle, channel_yaw, 
 
 	msg_override = OverrideRCIn()
 
-	msg_override.channels[0] = np.uint(channel_pitch)		#pulseCmd[4]  # pitch		Tangage
+	msg_override.channels[0] = np.uint(channel_pitch)		    #pulseCmd[4]  # pitch		Tangage
 	msg_override.channels[1] = np.uint(channel_roll)			#pulseCmd[3]  # roll 		Roulis
 	msg_override.channels[2] = np.uint(channel_throttle)		#pulseCmd[2]  # up/down		Montee/descente
-	msg_override.channels[3] = np.uint(channel_yaw)			#pulseCmd[5]  # yaw		Lace
-	msg_override.channels[4] = np.uint(channel_forward)		#pulseCmd[0]  # forward		Devant/derriere
-	msg_override.channels[5] = np.uint(channel_lateral)		#pulseCmd[1]  # lateral		Gauche/droite
+	msg_override.channels[3] = np.uint(channel_yaw)			    #pulseCmd[5]  # yaw		    Lace
+	msg_override.channels[4] = np.uint(channel_forward)		    #pulseCmd[0]  # forward		Devant/derriere
+	msg_override.channels[5] = np.uint(channel_lateral)	     	#pulseCmd[1]  # lateral		Gauche/droite
 	msg_override.channels[6] = 1500
 	msg_override.channels[7] = 1500
 	# print("<3=====D ",msg_override)
@@ -244,44 +270,37 @@ def DoThing(msg):
 	print(msg.data)
 	setOverrideRCIN(1500, 1500, msg.data, 1500, 1500, 1500)
 
-def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g):
-    
-    e = x_desired - x_real  # Error between the real and desired value
-    P = K_P * e                          #Proportional controller 
-    I = I0 + K_I * e * step              #Integral controller
-    # Tau = P + g
-    Tau = P + I + g                      #Output of the PID controller 
-    I0 = I                               #Update the initial value of integral controller 
-    
-    return -Tau, I0
+####################Functions######################################
 
-def PIDControlCallback(pid_effort, floatability = 0):
-	thrust_req = floatability + pid_effort.data
-	m = 76
-	c = 1532
-	pwm = int(m*thrust_req/4) + c
-	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
+#Function used to control depth with PI with componstaion 
+def Depth_Control(depth_desired, depth_actual):
+	I0 = 0				# initial value of integral
+	K_P = 2				#Propotinnal gain 
+	K_I = 0.01			#Integral gain 
+	fs = 20 			#Frequance 
+	step = 1/fs			#Step time
+	g = 3				#flotability 
+	thrust_req = PI_Controller_With_Comp(depth_desired, depth_actual, K_P, K_I, step, I0 ,g)
+	return thrust_req
 
-def ControlDepth(z_desired, z_actual):
-	global I0
-	K_P = 2
-	K_I = 0.01
-	step = 0.02
-	g = 0.3
-	thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual, K_P, K_I, step, I0 ,g)
-	if thrust_req >= 0:
-		m = 104.4
-		c = 1540
-	else:
-		m = 132.7
-		c = 1460
-	pwm = int(m*thrust_req/4) + c
-	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
+#Function used to calculate the necessary PWM for each motor
+def PWM_Cmd(thrust_req ):
+	if (thrust_req >= 0):
+		m = 6.881828197909264  		#Slope of the positive PWM linear function
+		b = 1556.3720736720543
+	else :
+		m = 8.991632170634897		#Slope of the positive PWM linear function
+		b = 1449.083741446921
+	PWM = int(m * thrust_req/4) + b
+	return PWM 
+
+
+#Function used to enble the depth calback 
 
 def EnableDepthCallback(msg):
-	global counter 
 	global enable_depth
 	global init_p0
+	global counter
 	counter = 0
 	enable_depth = True
 	init_p0 = True
@@ -291,14 +310,13 @@ def subscriber():
 	rospy.Subscriber("cmd_vel", Twist, velCallback)
 	rospy.Subscriber("mavros/imu/data", Imu, OdoCallback)
 	rospy.Subscriber("mavros/imu/water_pressure", FluidPressure, PressureCallback)
-	rospy.Subscriber("pid/depth/control_effort", Float64, PIDControlCallback)
 	rospy.Subscriber("enable_depth", Empty, EnableDepthCallback)
 	rospy.Subscriber("do/thing", Int16, DoThing)
-	rospy.spin() # Execute subscriber in loop
+	rospy.spin() 	#Execute subscriber in loop
 
 
 if __name__ == '__main__':
-	armDisarm(False) # Not automatically disarmed at startup
+	armDisarm(False) 		#Not automatically disarmed at startup
 	rospy.init_node('autonomous_MIR', anonymous=False)
 	pub_msg_override = rospy.Publisher("mavros/rc/override", OverrideRCIn, queue_size=10, tcp_nodelay=True)
 	pub_angle_degre = rospy.Publisher('angle_degree', Twist, queue_size=10, tcp_nodelay=True)
