@@ -23,7 +23,7 @@ def linear_eq_below(x, m):
 def compute_pwm(f, m, c):
     return m*f + c
 file_name = 't200.xls'
-sheet_name = '12 V'
+sheet_name = '16 V'
 file_path = os.path.abspath(os.getcwd()) + '/data/' + file_name
 data = pd.read_excel(file_path, sheet_name=sheet_name)
 
@@ -50,6 +50,11 @@ y_below = np.array(data_below_1500[' PWM (µs)'])
 x_below = np.array(data_below_1500[' Force (Kg f)'])
 result_below = curve_fit(linear_eq_below, x_below, y_below, p0=[0])
 
+# Calculate requied pwm
+required_thrust = -1.5/4
+required_pwm = compute_pwm(required_thrust, result_below[0][0], c2)
+print(f'Requireed PWM for {required_thrust} thrust is {required_pwm}')
+
 # plot the data
 y_all = np.array(data[' PWM (µs)'])
 x_all = np.array(data[' Force (Kg f)'])
@@ -64,10 +69,10 @@ plt.title(f"PWM vs Thrust(t200) ({sheet_name})", **font)
 plt.grid()
 plt.legend(["fitted +ve thrust", "fitted -ve thrust", "non-linear"])
 plt.annotate(f'+ve thrust start at {c1}', xy=(0, c1),  xycoords='data',
-            xytext=(0.8, 0.95), textcoords='axes fraction',
-            arrowprops=dict(facecolor='black'),
-            horizontalalignment='right', verticalalignment='top',
-            bbox=dict(boxstyle="round", fc="w"))
+             xytext=(0.8, 0.95), textcoords='axes fraction',
+             arrowprops=dict(facecolor='black'),
+             horizontalalignment='right', verticalalignment='top',
+             bbox=dict(boxstyle="round", fc="w"))
 plt.annotate(f'-ve thrust start at {c2}', xy=(0, c2),  xycoords='data',
              xytext=(0.8, 0.2), textcoords='axes fraction',
              arrowprops=dict(facecolor='black'),
@@ -76,8 +81,5 @@ plt.annotate(f'-ve thrust start at {c2}', xy=(0, c2),  xycoords='data',
              )
 plt.show()
 
-required_thrust = 1.5/4
-required_pwm = compute_pwm(required_thrust, result_above[0][0], c1)
-print(f'Requireed PWM for {required_thrust} thrust is {required_pwm}')
 
 

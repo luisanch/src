@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from email.header import Header
 from itertools import count
 import rospy
 import tf
@@ -9,6 +10,7 @@ from std_msgs.msg import Float64
 from std_msgs.msg import Empty
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
+from autonomous_rov.msg import PIDParams
 from mavros_msgs.msg import OverrideRCIn
 from sensor_msgs.msg import Joy
 from sensor_msgs.msg import Imu
@@ -16,6 +18,8 @@ from sensor_msgs.msg import FluidPressure
 from mavros_msgs.srv import CommandLong
 from geometry_msgs.msg import Twist
 import numpy as np
+import argparse
+import sys
 
 
 # ---------- Global Variables ---------------
@@ -45,6 +49,8 @@ enable_depth = False # Don't Publish the depth data until asked
 I0 = 0 				# Error Accumulation
 custom_PID = True
 counter = 0
+t1 = 0
+dt = 0
 
 ##----alpha beta gamma filter variables------##
 xk_1 = 0
@@ -173,12 +179,17 @@ def PressureCallback(data):
 	global enable_depth
 	global custom_PID
 	global counter
+	global t1
+	global dt
 
 	rho = 1000.0 # 1025.0 for sea water
 	g = 9.80665
 
 	if(enable_depth):
 		pressure = data.fluid_pressure
+		t2 = rospy.Time.now().to_sec()
+		dt = t2 - t1
+		t1 = t2
 		if (init_p0):
 			# 1st execution, init
 			depth_p0 += (pressure - 101300)/(rho*g)
@@ -250,24 +261,75 @@ def setOverrideRCIN(channel_pitch, channel_roll, channel_throttle, channel_yaw, 
 	msg_override.channels[5] = np.uint(channel_lateral)		#pulseCmd[1]  # lateral		Gauche/droite
 	msg_override.channels[6] = 1500
 	msg_override.channels[7] = 1500
-	# print("<3=====D ",msg_override)
+	
 	pub_msg_override.publish(msg_override)
 
 def DoThing(msg):
 	print(msg.data)
 	setOverrideRCIN(1500, 1500, msg.data, 1500, 1500, 1500)
 
-def PI_Controller_With_Comp(x_desired, x_real, K_P, K_I, step, I0,g, K_D = 0.00 ,v_estimation = 0):
+
+def PI_Controller_With_Comp(z_desired, z_actual):
+		global args
+		global vk_1
     
-    e = x_desired - x_real  # Error between the real and desired value
-    P = K_P * e                          #Proportional controller 
-    I = I0 + K_I * e * step              #Integral controller
-    D = K_D * v_estimation
-    # Tau = P + g
-    Tau = P + I + D + g                      #Output of the PID controller 
-    I0 = I                               #Update the initial value of integral controller 
+    # P part of PID
+		e = z_desired - z_actual  # Error between the real and desired value
+		P = args.kp * e  # Proportional controller  
+
+		# Add P and g componentes
+		Tau = P + args.g
+
+		# if use integrator to add the I of PID
+		if args.use_ki:
+			step = args.step if args.use_step else args.dt
+			I = I0 + args.ki * e * step  # Integral controller
+			Tau += I 
+			I0 = I  # Update the initial value of integral controller
+
+		# if use alpha-beta filter to add the D of PID
+		if args.use_alpha_beta:
+			z_d = vk_1
+			Tau += args.kd * z_d  # Derivative controller
+		
     
-    return -Tau, I0
+		return -Tau, I0
+
+def Set_Alpha_Beta_Filter(xk_1_in, vk_1_in, ak_1_in):
+	global xk_1
+	global vk_1
+	global ak_1  
+
+	xk_1 = xk_1_in
+	vk_1 = vk_1_in
+	ak_1 = ak_1_in 
+
+def Alpha_Beta_Filter(xm):
+	global xk_1
+	global vk_1
+	global ak_1  
+
+	dt = 0.02
+
+	a = 0.45
+	b = 0.1
+	g = 0.000
+
+	xk = xk_1 + (vk_1 * dt)
+	vk = vk_1 + (ak_1 * dt)
+	ak = (vk - vk_1) /dt
+
+	rk = xm - xk
+
+	xk += a*rk
+	vk += (b*rk)/dt
+	ak += (2*g*rk)/np.power(dt,2)
+
+	xk_1 = xk
+	vk_1 = vk
+	ak_1 = ak    
+
+	return xk, vk, ak
 
 def Set_Alpha_Beta_Filter(xk_1_in, vk_1_in, ak_1_in):
 	global xk_1
@@ -313,14 +375,10 @@ def PIDControlCallback(pid_effort, floatability = 0):
 	setOverrideRCIN(1500, 1500, pwm, 1500, 1500, 1500)
 
 def ControlDepth(z_desired, z_actual):
-	global I0, xk_1, vk_1
-	K_P = 2
-	K_I = 0.01
-	K_D = 0.01
-	step = 0.02
-	g = 0.3
-	thrust_req, I0 = PI_Controller_With_Comp(z_desired, xk_1, K_P, K_I, step, I0 ,g, K_D, vk_1)
-	print(xk_1, vk_1)
+	global I0
+
+	thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual)
+
 	if thrust_req >= 0:
 		m = 104.4
 		c = 1540
@@ -356,4 +414,24 @@ if __name__ == '__main__':
 	pub_msg_override = rospy.Publisher("mavros/rc/override", OverrideRCIn, queue_size=10, tcp_nodelay=True)
 	pub_angle_degre = rospy.Publisher('angle_degree', Twist, queue_size=10, tcp_nodelay=True)
 	pub_depth = rospy.Publisher('pid/depth/state', Float64, queue_size=10, tcp_nodelay=True)
+	
+	# PID Arguments
+	parser = argparse.ArgumentParser(description='PID_DEPTH')
+	parser.add_argument('--kp', type=float, default=2)
+	
+	parser.add_argument('--use_ki', action='store_true')
+	parser.add_argument('--ki', type=float, default=0.005)
+
+	parser.add_argument('--use_alpha_beta', action='store_true')
+	parser.add_argument('--kd', type=float, default=0.01)
+	parser.add_argument('--alpha', type=float, default=0.1)
+	parser.add_argument('--beta', type=float, default=0.2)
+
+	parser.add_argument('--use_step', action='store_true')
+	parser.add_argument('--step', type=float, default=0.02)
+	parser.add_argument('--g', type=float, default=-0.3)
+
+	sys.argv = rospy.myargv(argv=sys.argv)
+	args = parser.parse_args()
+
 	subscriber()
