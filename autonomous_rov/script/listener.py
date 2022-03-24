@@ -263,6 +263,8 @@ def PressureCallback(data):
 
             if(custom_PID):
                 if args.use_traj:
+                    print(
+                        f"desired_z = {traj[counter]}, actual_z = {depth_wrt_startup}")
                     ControlDepth(traj[counter], depth_wrt_startup)
                     counter += 1
                     if counter == len(traj):
@@ -415,7 +417,7 @@ def ControlDepth(z_desired, z_actual):
     global I0
 
     thrust_req, I0 = PI_Controller_With_Comp(z_desired, z_actual)
-    print(depth_wrt_startup, xk_1, vk_1)
+    # print(depth_wrt_startup, xk_1, vk_1)
     if thrust_req >= 0:
         m = 104.4
         c = 1540
@@ -479,7 +481,7 @@ if __name__ == '__main__':
 
     sys.argv = rospy.myargv(argv=sys.argv)
     args = parser.parse_args()
-
+    print(args.use_traj)
     traj_obj = GenerateTraj()
     t, traj, v, a = traj_obj.generate_traj(desired_depth)
     subscriber()
