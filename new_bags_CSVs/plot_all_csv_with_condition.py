@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ### Set your path to the folder containing the .csv files
-PATH = './bags/' # Use your path
+PATH = './new_bags_CSVs/' # Use your path
 
 ### Fetch all files in path
 fileNames = os.listdir(PATH)
@@ -19,15 +19,23 @@ for file in fileNames:
 
     # if file.find("_g_") != -1:  #skip files with this sub string
     #     continue
-    if file.find("no_wall_2_Depth") == -1:    #skip files without this sub string
+    if file.find(".bag _De") == -1:    #skip files without this sub string
         continue
 
     ### Read .csv file and append to list
     df_d = pd.read_csv(PATH + file, index_col = None)
-    df_d['%time'] = (df_d['%time'] - df_d['%time'].iloc[0]) / 1e6   #nano second to ms
-
+    
     df_pwm = pd.read_csv(PATH + file.replace("_Depth", "_PWM"), index_col = None).drop(columns=['field.channels0','field.channels1','field.channels3','field.channels4','field.channels5','field.channels6','field.channels7'])
-    df_pwm['%time'] = (df_pwm['%time'] - df_pwm['%time'].iloc[0]) / 1e6 #nano second to ms
+
+    start_time = df_d['%time'].iloc[0]
+    
+
+    
+    df_d['%time'] = (df_d['%time'] - start_time) / 1e9   #nano second to ms
+    df_pwm['%time'] = (df_pwm['%time'] - start_time) / 1e9 #nano second to ms
+    
+    # print(df_d['%time'].iloc[-1])
+    # print(df_pwm['%time'].iloc[-1])
     # bias = np.average (np.array(df['field.data'].tolist())[:5])
     # bias = 0
     # print (bias)
@@ -50,10 +58,19 @@ for file in fileNames:
     fig, ax1 = plt.subplots()
 
     color = 'tab:red'
-    ax1.set_xlabel('Time (milli second)')
+    ax1.set_xlabel('Time (s)')
     ax1.set_ylabel('Depth (m)', color=color)
-    ax1.plot(df_d['%time'],df_d['field.data'], color=color, label=file.replace("depth_control_12v_", "").replace(".csv", "").replace("_Depth", "").replace("_no_wall_2", "").replace("kp_p", "kp"))
+    ax1.axhline(0.5,color='grey',linestyle=":") # y = 0
+    line1,  = ax1.plot(df_d['%time'],df_d['field.data'], color=color, label=file.replace(".csv", "").replace("_Depth", "").replace("_step=0.02_pid_xk.bag ", "").replace("_trajectory", ""))
     ax1.tick_params(axis='y', labelcolor=color)
+    # plt.rc('legend',fontsize='small')
+
+    # ax1.annotate('Pushed down', xy=(28.5, .46), xytext=(28, .3),
+    #         arrowprops=dict(facecolor='black', shrink=0.025),
+    #         )
+    # ax1.annotate('pulled up', xy=(38, .3), xytext=(3, .33),
+    #         arrowprops=dict(facecolor='black', shrink=0.05),
+    #         )
 
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
@@ -62,14 +79,20 @@ for file in fileNames:
     ax2.plot(df_pwm['%time'],df_pwm['field.channels2'], color=color)
     ax2.tick_params(axis='y', labelcolor=color)
 
-fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    fig.suptitle('PID with alpha-beta filtering')
+    # fig.legend(loc='lower right')
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
 
-### Generate the plot
-# plt.ylabel("Depth(m)")
-# plt.xlabel("Time Steps")
-plt.legend(loc="best")
-# plt.xlim(0, 37250)
-# plt.ylim(-0.68, 0.5)
-ax1.axhline(0.5,color='grey',linestyle="--") # y = 0
-plt.grid()
+    ### Generate the plot
+    # plt.ylabel("Depth(m)")
+    # plt.xlabel("Time Steps")
+
+    # plt.xlim(0, 37250)
+    # plt.ylim(-0.68, 0.5)
+    
+    plt.grid()
+    break
+
+
+# fig.legend(loc="best")
 plt.show()

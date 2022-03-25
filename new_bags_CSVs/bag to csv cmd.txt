@@ -1,0 +1,21 @@
+
+cmd to export csv
+
+#depth
+rostopic echo -b depth_control_12v_kp_5.bag -p /br2/pid/depth/state > depth_control_12v_kp_5_Depth.csv
+
+#thrusters
+rostopic echo -b depth_control_12v_kp_5.bag -p /br2/mavros/rc/override > depth_control_12v_kp_5_PWM.csv
+
+#to G or !To G
+rostopic echo -b new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0_step=0.02_no_G.bag -p /br2/pid/depth/state > new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0_Depth.csv && rostopic echo -b new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0_step=0.02_no_G.bag -p /br2/mavros/rc/override > new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0_PWM.csv
+
+rostopic echo -b new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0.6_step=0.02_with_G.bag -p /br2/pid/depth/state > new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0.6_Depth.csv && rostopic echo -b new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0.6_step=0.02_with_G.bag -p /br2/mavros/rc/override > new_bags/kp=3_ki=0.005_kd=0_alpha=0.45_beta=0.1_g=0.6_PWM.csv
+
+# trajectory
+
+rostopic echo -b new_bags/kp=0.5_ki=0.001_kd=0.0005_alpha=0.45_beta=0.1_g=0.57_step=0.02_good_traj.bag -p /br2/pid/depth/state > new_bags/kp=0.5_ki=0.001_kd=0.0005_alpha=0.45_beta=0.1_g=0.57_trajectory_Depth.csv && rostopic echo -b new_bags/kp=0.5_ki=0.001_kd=0.0005_alpha=0.45_beta=0.1_g=0.57_step=0.02_good_traj.bag -p /br2/mavros/rc/override > new_bags/kp=0.5_ki=0.001_kd=0.0005_alpha=0.45_beta=0.1_g=0.57_trajectory_PWM.csv
+
+# boston dynamics(disturbance)
+file=new_bags_CSVs/kp=1.5_ki=0.05_kd=0.001_alpha=0.45_beta=0.1_g=0.45_step=0.02_pid_xk.bag;
+rostopic echo -b $file -p /br2/pid/depth/state > "$file _Depth.csv" && rostopic echo -b $file -p /br2/mavros/rc/override > "$file _PWM.csv"
