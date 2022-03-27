@@ -19,3 +19,12 @@ rostopic echo -b new_bags/kp=0.5_ki=0.001_kd=0.0005_alpha=0.45_beta=0.1_g=0.57_s
 # boston dynamics(disturbance)
 file=new_bags_CSVs/kp=1.5_ki=0.05_kd=0.001_alpha=0.45_beta=0.1_g=0.45_step=0.02_pid_xk.bag;
 rostopic echo -b $file -p /br2/pid/depth/state > "$file _Depth.csv" && rostopic echo -b $file -p /br2/mavros/rc/override > "$file _PWM.csv"
+
+
+# bottle
+file=new_bags_CSVs/G/kp=2_ki=0.005_kd=0.01_alpha=0.45_beta=0.1_g=-0.6_step=0.02_Bottle.bag;
+rostopic echo -b $file -p /br2/mavros/imu/water_pressure > "$file _pressure.csv" && rostopic echo -b $file -p /br2/mavros/rc/override > "$file _PWM.csv"
+
+# GGG
+file=new_bags_CSVs/G/kp=2_ki=0.005_kd=0.01_alpha=0.45_beta=0.1_g=-0.3_step=0.02_2022-03-24-16-00-06_GG.bag;
+rostopic echo -b $file -p /br2/mavros/imu/water_pressure > "$file _pressure.csv" && rostopic echo -b $file -p /br2/mavros/rc/override > "$file _PWM.csv"
